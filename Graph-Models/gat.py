@@ -7,6 +7,8 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from torch_geometric.nn import GATConv
 
+import wandb
+
 dataset = 'Cora'
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data', dataset)
 dataset = Planetoid(path, dataset, transform=T.NormalizeFeatures())
@@ -27,7 +29,7 @@ class GAT(torch.nn.Module):
         return x
 
 
-device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = GAT(dataset.num_features, dataset.num_classes).to(device)
 data = data.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
@@ -40,6 +42,7 @@ def train(data):
     loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask])
     loss.backward()
     optimizer.step()
+    return loss.item()
 
 
 @torch.no_grad()
@@ -52,9 +55,17 @@ def test(data):
         accs.append(acc)
     return accs
 
+wandb.init(project="hw3", name="gat")
 
 for epoch in range(1, 201):
-    train(data)
+    loss = train(data)
     train_acc, val_acc, test_acc = test(data)
+    wandb.log({
+        "train_accuracy": train_acc,
+        "val_accuracy": val_acc,
+        "test_accuracy": test_acc,
+        "train_loss": loss,
+        "epoch": epoch
+    })
     print(f'Epoch: {epoch:03d}, Train: {train_acc:.4f}, Val: {val_acc:.4f}, '
           f'Test: {test_acc:.4f}')

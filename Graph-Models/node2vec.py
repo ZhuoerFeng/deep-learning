@@ -9,13 +9,14 @@ from sklearn.manifold import TSNE
 
 from torch_geometric.datasets import Planetoid
 from torch_geometric.nn import Node2Vec
+import wandb
 
 dataset = 'Cora'
 path = osp.join(osp.dirname(osp.realpath(__file__)), 'data', dataset)
 dataset = Planetoid(path, dataset)
 data = dataset[0]
 
-device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Node2Vec(data.edge_index, embedding_dim=128, walk_length=20,
                  context_size=10, walks_per_node=10,
                  num_negative_samples=1, p=1, q=1, sparse=True).to(device)
@@ -45,10 +46,16 @@ def test():
                      max_iter=150)
     return acc
 
+wandb.init(project="hw3", name="node2vec")
 
 for epoch in range(1, 101):
     loss = train()
     acc = test()
+    wandb.log({
+        "accuracy": acc,
+        "loss": loss,
+        "epoch": epoch
+    })
     print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Acc: {acc:.4f}')
 
 
